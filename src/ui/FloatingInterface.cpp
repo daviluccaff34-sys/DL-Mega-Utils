@@ -24,21 +24,63 @@ int applyGeneratedLayout(LayoutProfile const& profile) {
     auto plan = AutoLayoutGenModule::generatePlan(profile);
     int x = 300;
     int inserted = 0;
+    int groundY = 90;
+
     for (auto const& segment : plan) {
-        int cells = std::clamp(static_cast<int>(segment.duration * 2.0f), 4, 12);
-        for (int i = 0; i < cells; ++i) {
-            if (insertGDObject(1, x + i * 30, 90)) ++inserted;
+        int cells = std::clamp(static_cast<int>(std::round(segment.duration * 2.5f)), 5, 14);
+        int obstacleCount = std::clamp(segment.jumpCount, 1, 4);
+        int safeCells = segment.gapAfter ? std::max(3, cells - 2) : cells;
+
+        // Keep a continuous playable floor, then shape each section with a distinct pattern.
+        for (int i = 0; i < safeCells; ++i) {
+            if (insertGDObject(1, x + i * 30, groundY)) ++inserted;
         }
-        if (segment.difficultyWeight >= 0.85f) {
-            int spikeX = x + std::min(cells - 1, 2) * 30;
-            if (insertGDObject(8, spikeX, 120)) ++inserted;
-            if (segment.difficultyWeight >= 1.35f && cells > 5) {
-                if (insertGDObject(8, spikeX + 30, 120)) ++inserted;
-            }
+
+        switch (segment.pattern % 5) {
+            case 0: // classic obstacle rhythm
+                for (int i = 0; i < obstacleCount; ++i) {
+                    int spikeX = x + (2 + i * 2) * 30;
+                    if (spikeX < x + safeCells * 30 && insertGDObject(8, spikeX, groundY + 30)) ++inserted;
+                }
+                break;
+            case 1: // raised platform with a clear approach
+                if (insertGDObject(2, x + 4 * 30, groundY + 60)) ++inserted;
+                if (insertGDObject(2, x + 5 * 30, groundY + 60)) ++inserted;
+                if (segment.difficultyWeight > 1.1f && insertGDObject(8, x + 7 * 30, groundY + 30)) ++inserted;
+                break;
+            case 2: // stair-step terrain
+                for (int i = 0; i < std::min(obstacleCount, 3); ++i) {
+                    if (insertGDObject(1, x + (3 + i) * 30, groundY + (i + 1) * 30)) ++inserted;
+                }
+                break;
+            case 3: // low ceiling section
+                for (int i = 0; i < std::min(cells - 2, 4); ++i) {
+                    if (insertGDObject(1, x + (i + 2) * 30, groundY + 150)) ++inserted;
+                }
+                if (segment.difficultyWeight > 1.25f && insertGDObject(8, x + 5 * 30, groundY + 30)) ++inserted;
+                break;
+            default: // alternating blocks and spikes
+                for (int i = 0; i < obstacleCount; ++i) {
+                    int obstacleX = x + (3 + i * 2) * 30;
+                    if (obstacleX >= x + safeCells * 30) break;
+                    if (i % 2 == 0) {
+                        if (insertGDObject(8, obstacleX, groundY + 30)) ++inserted;
+                    } else {
+                        if (insertGDObject(1, obstacleX, groundY + 60)) ++inserted;
+                    }
+                }
+                break;
         }
-        if (segment.isDrop && insertGDObject(36, x + cells * 15, 150)) ++inserted;
-        x += cells * 30 + 60;
+
+        if (segment.isDrop) {
+            // A visual drop marker is placed above the playable path.
+            if (insertGDObject(36, x + safeCells * 15, groundY + 90)) ++inserted;
+            if (insertGDObject(1, x + safeCells * 30, groundY + 30)) ++inserted;
+        }
+
+        x += (safeCells + (segment.gapAfter ? 2 : 1)) * 30;
     }
+
     editor->dirtifyTriggers();
     if (auto ui = EditorUI::get()) {
         ui->updateButtons();
