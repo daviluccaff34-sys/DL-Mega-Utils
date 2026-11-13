@@ -3,6 +3,7 @@
 #include <Geode/modify/EditorUI.hpp>
 #include "../layout/AutoLayoutGenModule.hpp"
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 using namespace geode::prelude;
@@ -192,7 +193,7 @@ public:
         m_orb->setPosition(38.f, win.height * .55f);
         this->addChild(m_orb, 2);
         auto orbText = CCLabelBMFont::create("DL", "bigFont.fnt");
-        if (orbText) { orbText->setScale(.30f); orbText->setPosition(m_orb->getContentSize() / 2.f); m_orb->addChild(orbText, 5); }
+        if (orbText) { orbText->setScale(.30f); orbText->setPosition(m_orb->getContentSize().width / 2.f, m_orb->getContentSize().height / 2.f); m_orb->addChild(orbText, 5); }
         return true;
     }
 
