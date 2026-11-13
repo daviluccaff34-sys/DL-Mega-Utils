@@ -1,7 +1,7 @@
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, OPTIONS",
-  "access-control-allow-headers": "Content-Type, Authorization"
+  "access-control-allow-headers": "Content-Type, X-Publish-Password"
 };
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -48,9 +48,9 @@ export default {
     }
 
     if (url.pathname === "/api/admin/packs" && request.method === "POST") {
-      if (!env.ADMIN_TOKEN) return json({ ok: false, error: "Admin publishing is not configured" }, 503);
-      const auth = request.headers.get("authorization") || "";
-      if (auth !== "Bearer " + env.ADMIN_TOKEN) return json({ ok: false, error: "Admin permission required" }, 403);
+      if (!env.ADMIN_PASSWORD) return json({ ok: false, error: "Password publishing is not configured" }, 503);
+      const suppliedPassword = request.headers.get("x-publish-password") || "";
+      if (suppliedPassword !== env.ADMIN_PASSWORD) return json({ ok: false, error: "Invalid publishing password" }, 403);
 
       let body;
       try { body = await request.json(); }
