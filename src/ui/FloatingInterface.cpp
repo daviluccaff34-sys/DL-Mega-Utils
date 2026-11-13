@@ -179,14 +179,14 @@ int applyDecorationPreset(std::string const& preset) {
     return inserted;
 }
 
-class DLPanel : public CCLayerColor {
+class DLPanel : public cocos2d::CCLayerColor {
     Page m_page = Page::Home;
     LayoutProfile m_profile;
     std::string m_status = "Escolha uma ferramenta.";
     std::string m_preset = "NULL";
     std::string m_comboData;
     int m_comboCount = 0;
-    geode::EventListener<geode::utils::web::WebTask> m_webListener;
+    async::TaskHolder<web::WebResponse> m_webListener;
     std::string m_requestType = "publish";
 
     void addLabel(CCNode* parent, std::string const& text, CCPoint pos, float scale = .55f) {
@@ -198,33 +198,25 @@ class DLPanel : public CCLayerColor {
     }
 
 
-    void onWebTask(geode::utils::web::WebTask::Event* event) {
-        if (auto response = event->getValue()) {
-            if (m_requestType == "publish") {
-                m_status = response->ok()
-                    ? "Combo publicado no Trigger Market!"
-                    : "Falha ao publicar (HTTP " + std::to_string(response->code()) + ").";
-            } else if (response->ok()) {
-                auto body = response->string();
-                int count = 0;
-                if (body) {
-                    std::string value = *body;
-                    std::string needle = R"("id")";
-                    size_t pos = 0;
-                    while ((pos = value.find(needle, pos)) != std::string::npos) {
-                        ++count;
-                        pos += needle.size();
-                    }
-                }
-                m_status = "Catalogo carregado: " + std::to_string(count) + " pacotes.";
-            } else {
-                m_status = "Erro ao carregar catalogo (HTTP " + std::to_string(response->code()) + ").";
+    void onWebResponse(web::WebResponse response) {
+        if (m_requestType == "publish") {
+            m_status = response.ok()
+                ? "Combo publicado no Trigger Market!"
+                : "Falha ao publicar (HTTP " + std::to_string(response.code()) + ").";
+        } else if (response.ok()) {
+            auto body = response.string().unwrapOr("");
+            int count = 0;
+            std::string needle = R"("id")";
+            size_t pos = 0;
+            while ((pos = body.find(needle, pos)) != std::string::npos) {
+                ++count;
+                pos += needle.size();
             }
-            rebuild();
-        } else if (event->isCancelled()) {
-            m_status = "Solicitacao cancelada.";
-            rebuild();
+            m_status = "Catalogo carregado: " + std::to_string(count) + " pacotes.";
+        } else {
+            m_status = "Erro ao carregar catalogo (HTTP " + std::to_string(response.code()) + ").";
         }
+        rebuild();
     }
 
     void rebuild() {
@@ -338,10 +330,12 @@ class DLPanel : public CCLayerColor {
             const char* type = tag == 43 ? "triggers" : "objects";
             m_requestType = "catalog";
             m_status = std::string("Carregando ") + categories[tag - 40] + "...";
-            auto task = geode::utils::web::WebRequest().get(
+            auto task = web::WebRequest().get(
                 std::string("https://dl-mega-utils-api.daviluccaff34.workers.dev/api/packs?type=") + type
             );
-            m_webListener.setFilter(task);
+            m_webListener.spawn(std::move(task), [this](web::WebResponse response) {
+                this->onWebResponse(std::move(response));
+            });
             rebuild();
             return;
         }
@@ -379,11 +373,13 @@ class DLPanel : public CCLayerColor {
                     payload["data"] = m_comboData;
                     m_requestType = "publish";
                     m_status = "Publicando combo...";
-                    auto task = geode::utils::web::WebRequest()
+                    auto task = web::WebRequest()
                         .header("X-Publish-Password", token)
                         .bodyJSON(payload)
                         .post("https://dl-mega-utils-api.daviluccaff34.workers.dev/api/admin/packs");
-                    m_webListener.setFilter(task);
+                    m_webListener.spawn(std::move(task), [this](web::WebResponse response) {
+                        this->onWebResponse(std::move(response));
+                    });
                 }
             }
         } else if (tag >= 30 && tag <= 35) {
@@ -430,7 +426,7 @@ public:
         auto size = CCDirector::sharedDirector()->getWinSize();
         if (ret && ret->initWithColor(ccc4(0, 0, 0, 150), size.width, size.height)) {
             ret->autorelease();
-            ret->m_webListener.bind(ret, &DLPanel::onWebTask);
+            
             ret->rebuild();
             return ret;
         }
@@ -439,7 +435,7 @@ public:
     }
 };
 
-class DLFloatingOrb : public CCLayer {
+class DLFloatingOrb : public cocos2d::CCLayer {
     CCSprite* m_orb = nullptr;
     bool m_dragging = false;
     bool m_moved = false;
