@@ -1,10 +1,17 @@
 {
-  "geode": "v5.11.2",
-  "gd": { "android": "2.2081", "win": "2.2081" },
+  "geode": "5.11.2",
+  "gd": {
+    "android": "2.2081",
+    "win": "2.2081"
+  },
   "id": "davilucca.dl-mega-utils",
   "name": "DL-Mega-utils",
   "version": "v1.0.0",
   "developer": "Davi Lucca",
   "description": "A modular creation toolkit for Geometry Dash: automatic decoration, community trigger packs, object packs and editor utilities.",
-  "tags": ["editor", "utility", "enhancement"]
+  "tags": [
+    "editor",
+    "utility",
+    "enhancement"
+  ]
 }
