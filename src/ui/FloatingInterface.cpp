@@ -11,6 +11,83 @@ using namespace geode::prelude;
 namespace {
 enum class Page { Home, Decoration, Layout, TriggerMarket, ObjectMarket, Tools };
 
+bool insertGDObject(int objectID, int x, int y) {
+    auto editor = LevelEditorLayer::get();
+    if (!editor) return false;
+    auto data = "1," + std::to_string(objectID) + ",2," + std::to_string(x) + ",3," + std::to_string(y);
+    return editor->addObjectFromString(gd::string(data.c_str())) != nullptr;
+}
+
+int applyGeneratedLayout(LayoutProfile const& profile) {
+    auto editor = LevelEditorLayer::get();
+    if (!editor) return -1;
+    auto plan = AutoLayoutGenModule::generatePlan(profile);
+    int x = 300;
+    int inserted = 0;
+    for (auto const& segment : plan) {
+        int cells = std::clamp(static_cast<int>(segment.duration * 2.0f), 4, 12);
+        for (int i = 0; i < cells; ++i) {
+            if (insertGDObject(1, x + i * 30, 90)) ++inserted;
+        }
+        if (segment.difficultyWeight >= 0.85f) {
+            int spikeX = x + std::min(cells - 1, 2) * 30;
+            if (insertGDObject(8, spikeX, 120)) ++inserted;
+            if (segment.difficultyWeight >= 1.35f && cells > 5) {
+                if (insertGDObject(8, spikeX + 30, 120)) ++inserted;
+            }
+        }
+        if (segment.isDrop && insertGDObject(36, x + cells * 15, 150)) ++inserted;
+        x += cells * 30 + 60;
+    }
+    editor->dirtifyTriggers();
+    if (auto ui = EditorUI::get()) {
+        ui->updateButtons();
+        ui->updateObjectInfoLabel();
+    }
+    return inserted;
+}
+
+int applyDecorationPreset(std::string const& preset) {
+    auto editor = LevelEditorLayer::get();
+    if (!editor) return -1;
+    auto objects = editor->getAllObjects();
+    if (!objects || objects->count() == 0) return 0;
+    float minX = 100000.f, maxX = -100000.f, minY = 100000.f, maxY = -100000.f;
+    for (int i = 0; i < objects->count(); ++i) {
+        auto object = static_cast<GameObject*>(objects->objectAtIndex(i));
+        if (!object) continue;
+        auto p = object->getPosition();
+        minX = std::min(minX, p.x); maxX = std::max(maxX, p.x);
+        minY = std::min(minY, p.y); maxY = std::max(maxY, p.y);
+    }
+    if (minX > maxX) return 0;
+    int inserted = 0;
+    int left = static_cast<int>(minX) - 60;
+    int right = static_cast<int>(maxX) + 60;
+    int top = static_cast<int>(maxY) + 90;
+    int bottom = static_cast<int>(minY) - 90;
+    int step = preset == "HELL" ? 60 : 90;
+    for (int x = left; x <= right; x += step) {
+        if (preset == "HELL") {
+            if (insertGDObject(8, x, top)) ++inserted;
+            if (insertGDObject(8, x, bottom)) ++inserted;
+        } else if (preset == "TECHNO") {
+            if (insertGDObject(1, x, top)) ++inserted;
+            if (insertGDObject(1, x, bottom)) ++inserted;
+            if ((x / step) % 2 == 0 && insertGDObject(1, x, top + 30)) ++inserted;
+        } else if (preset == "MODERN") {
+            if (insertGDObject(1, x, top)) ++inserted;
+            if (insertGDObject(1, x, bottom)) ++inserted;
+        }
+    }
+    editor->dirtifyTriggers();
+    if (auto ui = EditorUI::get()) {
+        ui->updateButtons();
+        ui->updateObjectInfoLabel();
+    }
+    return inserted;
+}
+
 class DLPanel : public CCLayerColor {
     Page m_page = Page::Home;
     LayoutProfile m_profile;
@@ -75,7 +152,8 @@ class DLPanel : public CCLayerColor {
                 makeButton("HELL", 17, h - 132.f);
                 makeButton("TECHNO", 18, h - 164.f);
                 makeButton("MODERN", 19, h - 196.f);
-                addLabel(panel, "Preset selecionado; aplicacao no editor pendente.", { w / 2.f, 48.f }, .34f);
+                makeButton("APPLY PRESET", 20, h - 228.f);
+                addLabel(panel, m_status, { w / 2.f, 48.f }, .34f);
             } else if (m_page == Page::Layout) {
                 auto diff = static_cast<int>(m_profile.difficulty);
                 auto len = static_cast<int>(m_profile.length);
@@ -122,10 +200,16 @@ class DLPanel : public CCLayerColor {
         if (tag >= 16 && tag <= 19) {
             const char* presets[] = { "NULL", "HELL", "TECHNO", "MODERN" };
             m_preset = presets[tag - 16];
+            m_status = "Preset " + m_preset + " selecionado.";
             rebuild();
             return;
         }
-        if (tag == 11) {
+        if (tag == 20) {
+            auto inserted = applyDecorationPreset(m_preset);
+            if (inserted < 0) m_status = "Abra uma fase no editor primeiro.";
+            else if (inserted == 0) m_status = "Nenhum objeto encontrado para decorar.";
+            else m_status = "Decoracao aplicada: " + std::to_string(inserted) + " objetos.";
+        } else if (tag == 11) {
             m_profile.difficulty = static_cast<LayoutDifficulty>((static_cast<int>(m_profile.difficulty) + 1) % 5);
         } else if (tag == 12) {
             m_profile.length = static_cast<LayoutLength>((static_cast<int>(m_profile.length) + 1) % 3);
@@ -134,10 +218,10 @@ class DLPanel : public CCLayerColor {
         } else if (tag == 14) {
             m_profile.includeDrops = !m_profile.includeDrops;
         } else if (tag == 15) {
-            auto plan = AutoLayoutGenModule::generatePlan(m_profile);
-            auto drops = std::count_if(plan.begin(), plan.end(), [](LayoutSegment const& s) { return s.isDrop; });
-            m_status = "Plano criado: " + std::to_string(plan.size()) + " segmentos / " +
-                std::to_string(drops) + " drops. Ainda nao insere objetos.";
+            auto inserted = applyGeneratedLayout(m_profile);
+            if (inserted < 0) m_status = "Abra uma fase no editor primeiro.";
+            else if (inserted == 0) m_status = "Nenhum objeto foi criado.";
+            else m_status = "Layout aplicado: " + std::to_string(inserted) + " objetos.";
         }
         rebuild();
     }
