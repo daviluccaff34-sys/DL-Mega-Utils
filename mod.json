@@ -15,11 +15,11 @@
     "enhancement"
   ],
   "settings": {
-    "admin-token": {
+    "publish-password": {
       "type": "string",
       "default": "",
-      "name": "Trigger Market Admin Token",
-      "description": "Token privado para publicar combos. Nao compartilhe este valor."
+      "name": "Senha de publicação",
+      "description": "Senha privada para publicar combos no Trigger Market."
     }
   }
 }
