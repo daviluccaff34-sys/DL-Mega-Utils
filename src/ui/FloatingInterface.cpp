@@ -45,7 +45,12 @@ TriggerComboResult prepareSelectedTriggerCombo() {
 
     for (int i = 0; i < selected->count(); ++i) {
         auto object = static_cast<GameObject*>(selected->objectAtIndex(i));
-        if (!object || !object->m_isTriggerable) continue;
+        if (!object) continue;
+        const int id = object->m_objectID;
+        const bool supportedTrigger =
+            id == 901 || id == 899 || id == 1006 || id == 1007 ||
+            id == 1049 || id == 1268 || id == 1346;
+        if (!supportedTrigger) continue;
 
         auto effect = static_cast<EffectGameObject*>(object);
         // Combo convention: every trigger points to target group 0.
