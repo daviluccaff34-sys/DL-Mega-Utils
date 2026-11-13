@@ -13,5 +13,13 @@
     "editor",
     "utility",
     "enhancement"
-  ]
+  ],
+  "settings": {
+    "admin-token": {
+      "type": "string",
+      "default": "",
+      "name": "Trigger Market Admin Token",
+      "description": "Token privado para publicar combos. Nao compartilhe este valor."
+    }
+  }
 }
