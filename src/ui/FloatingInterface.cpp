@@ -1,6 +1,7 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/MenuLayer.hpp>
 #include <Geode/modify/EditorUI.hpp>
+#include <Geode/utils/web.hpp>
 #include "../layout/AutoLayoutGenModule.hpp"
 #include <algorithm>
 #include <cmath>
@@ -179,6 +180,8 @@ class DLPanel : public CCLayerColor {
     std::string m_preset = "NULL";
     std::string m_comboData;
     int m_comboCount = 0;
+    geode::EventListener<geode::utils::web::WebTask> m_webListener;
+    std::string m_requestType = "publish";
 
     void addLabel(CCNode* parent, std::string const& text, CCPoint pos, float scale = .55f) {
         auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
@@ -186,6 +189,36 @@ class DLPanel : public CCLayerColor {
         label->setScale(scale);
         label->setPosition(pos);
         parent->addChild(label);
+    }
+
+
+    void onWebTask(geode::utils::web::WebTask::Event* event) {
+        if (auto response = event->getValue()) {
+            if (m_requestType == "publish") {
+                m_status = response->ok()
+                    ? "Combo publicado no Trigger Market!"
+                    : "Falha ao publicar (HTTP " + std::to_string(response->code()) + ").";
+            } else if (response->ok()) {
+                auto body = response->string();
+                int count = 0;
+                if (body) {
+                    std::string value = *body;
+                    std::string needle = "\\"id\\"";
+                    size_t pos = 0;
+                    while ((pos = value.find(needle, pos)) != std::string::npos) {
+                        ++count;
+                        pos += needle.size();
+                    }
+                }
+                m_status = "Catalogo carregado: " + std::to_string(count) + " pacotes.";
+            } else {
+                m_status = "Erro ao carregar catalogo (HTTP " + std::to_string(response->code()) + ").";
+            }
+            rebuild();
+        } else if (event->isCancelled()) {
+            m_status = "Solicitacao cancelada.";
+            rebuild();
+        }
     }
 
     void rebuild() {
@@ -296,7 +329,13 @@ class DLPanel : public CCLayerColor {
         if (tag == 5) { open(Page::Tools); return; }
         if (tag >= 40 && tag <= 43) {
             const char* categories[] = { "BLOCOS", "DECORACAO", "PORTAIS/ORBES", "TRIGGERS" };
-            m_status = std::string("Categoria: ") + categories[tag - 40] + ". Catalogo aguardando conexao do cliente.";
+            const char* type = tag == 43 ? "triggers" : "objects";
+            m_requestType = "catalog";
+            m_status = std::string("Carregando ") + categories[tag - 40] + "...";
+            auto task = geode::utils::web::WebRequest().get(
+                std::string("https://dl-mega-utils-api.daviluccaff34.workers.dev/api/packs?type=") + type
+            );
+            m_webListener.setFilter(task);
             rebuild();
             return;
         }
@@ -321,7 +360,25 @@ class DLPanel : public CCLayerColor {
             } else {
                 m_comboData = std::move(result.serialized);
                 m_comboCount = result.count;
-                m_status = "Combo preparado: " + std::to_string(m_comboCount) + " triggers. Publicacao requer token admin.";
+                auto token = Mod::get()->getSettingValue<std::string>("admin-token");
+                if (token.empty()) {
+                    m_status = "Configure o token admin nas opcoes do mod.";
+                } else {
+                    static unsigned int comboSerial = 1;
+                    matjson::Value payload = matjson::Value::object();
+                    payload["type"] = "triggers";
+                    payload["id"] = "combo_" + std::to_string(comboSerial++);
+                    payload["name"] = "Trigger Combo " + std::to_string(m_comboCount);
+                    payload["description"] = "Combo publicado pelo DL-Mega-Utils";
+                    payload["data"] = m_comboData;
+                    m_requestType = "publish";
+                    m_status = "Publicando combo...";
+                    auto task = geode::utils::web::WebRequest()
+                        .header("Authorization", "Bearer " + token)
+                        .bodyJSON(payload)
+                        .post("https://dl-mega-utils-api.daviluccaff34.workers.dev/api/admin/packs");
+                    m_webListener.setFilter(task);
+                }
             }
         } else if (tag >= 30 && tag <= 35) {
             static const int triggerIDs[] = { 901, 899, 1006, 1007, 1049, 1268 };
@@ -367,6 +424,7 @@ public:
         auto size = CCDirector::sharedDirector()->getWinSize();
         if (ret && ret->initWithColor(ccc4(0, 0, 0, 150), size.width, size.height)) {
             ret->autorelease();
+            ret->m_webListener.bind(ret, &DLPanel::onWebTask);
             ret->rebuild();
             return ret;
         }
