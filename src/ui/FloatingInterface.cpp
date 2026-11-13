@@ -18,6 +18,48 @@ bool insertGDObject(int objectID, int x, int y) {
     return editor->createObjectsFromString(gd::string(data.c_str()), false, false) != nullptr;
 }
 
+struct TriggerComboResult {
+    std::string serialized;
+    int count = 0;
+};
+
+TriggerComboResult prepareSelectedTriggerCombo() {
+    TriggerComboResult result;
+    auto editor = LevelEditorLayer::get();
+    auto ui = EditorUI::get();
+    if (!editor || !ui) return result;
+
+    auto selected = CCArray::create();
+    if (!selected) return result;
+
+    if (ui->m_selectedObject) {
+        selected->addObject(ui->m_selectedObject);
+    } else if (auto many = ui->getSelectedObjects()) {
+        selected->addObjectsFromArray(many);
+    }
+
+    auto triggers = CCArray::create();
+    if (!triggers) return result;
+
+    for (int i = 0; i < selected->count(); ++i) {
+        auto object = static_cast<GameObject*>(selected->objectAtIndex(i));
+        if (!object || !object->m_isTriggerable) continue;
+
+        auto effect = static_cast<EffectGameObject*>(object);
+        // Combo convention: every trigger points to target group 0.
+        if (effect->m_targetGroupID != 0) continue;
+
+        triggers->addObject(object);
+    }
+
+    if (triggers->count() == 0) return result;
+
+    auto data = ui->copyObjectsDetailed(triggers);
+    result.serialized = data.c_str();
+    result.count = triggers->count();
+    return result;
+}
+
 int applyGeneratedLayout(LayoutProfile const& profile) {
     auto editor = LevelEditorLayer::get();
     if (!editor) return -1;
@@ -135,6 +177,8 @@ class DLPanel : public CCLayerColor {
     LayoutProfile m_profile;
     std::string m_status = "Escolha uma ferramenta.";
     std::string m_preset = "NULL";
+    std::string m_comboData;
+    int m_comboCount = 0;
 
     void addLabel(CCNode* parent, std::string const& text, CCPoint pos, float scale = .55f) {
         auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
@@ -216,12 +260,18 @@ class DLPanel : public CCLayerColor {
                 makeButton("[PL] PULSE", 32, h - 147.f);
                 makeButton("[AL] ALPHA", 33, h - 175.f);
                 makeButton("[TG] TOGGLE", 34, h - 203.f);
-                makeButton("[SP] SPAWN", 35, h - 231.f);
-                addLabel(panel, m_status, { w / 2.f, 43.f }, .30f);
+                makeButton("[SP] SPAWN", 35, h - 213.f);
+                makeButton("+ PUBLICAR COMBO", 36, h - 241.f);
+                addLabel(panel, "Selecionados: triggers com alvo 0", { w / 2.f, h - 68.f }, .30f);
+                addLabel(panel, m_status, { w / 2.f, 43.f }, .28f);
             } else if (m_page == Page::ObjectMarket) {
-                addLabel(panel, "OBJECT MARKET", { w / 2.f, h - 70.f });
-                addLabel(panel, "Biblioteca online ainda nao conectada.", { w / 2.f, h - 115.f }, .36f);
-                addLabel(panel, "Nenhum objeto sera baixado ficticiamente.", { w / 2.f, h - 145.f }, .34f);
+                addLabel(panel, "OBJECT WORKSHOP", { w / 2.f, h - 55.f }, .58f);
+                makeButton("BLOCOS E ESTRUTURAS", 40, h - 100.f);
+                makeButton("DECORACAO", 41, h - 132.f);
+                makeButton("PORTAIS E ORBES", 42, h - 164.f);
+                makeButton("TRIGGERS", 43, h - 196.f);
+                addLabel(panel, "Catalogo publico: API Workers KV", { w / 2.f, 52.f }, .30f);
+                addLabel(panel, m_status, { w / 2.f, 39.f }, .27f);
             } else if (m_page == Page::Tools) {
                 addLabel(panel, "EDITOR TOOLS", { w / 2.f, h - 70.f });
                 addLabel(panel, "Ferramentas serao adicionadas aqui.", { w / 2.f, h - 115.f }, .38f);
@@ -244,6 +294,12 @@ class DLPanel : public CCLayerColor {
         if (tag == 3) { open(Page::TriggerMarket); return; }
         if (tag == 4) { open(Page::ObjectMarket); return; }
         if (tag == 5) { open(Page::Tools); return; }
+        if (tag >= 40 && tag <= 43) {
+            const char* categories[] = { "BLOCOS", "DECORACAO", "PORTAIS/ORBES", "TRIGGERS" };
+            m_status = std::string("Categoria: ") + categories[tag - 40] + ". Catalogo aguardando conexao do cliente.";
+            rebuild();
+            return;
+        }
         if (tag >= 16 && tag <= 19) {
             const char* presets[] = { "NULL", "HELL", "TECHNO", "MODERN" };
             m_preset = presets[tag - 16];
@@ -256,6 +312,17 @@ class DLPanel : public CCLayerColor {
             if (inserted < 0) m_status = "Abra uma fase no editor primeiro.";
             else if (inserted == 0) m_status = "Nenhum objeto encontrado para decorar.";
             else m_status = "Decoracao aplicada: " + std::to_string(inserted) + " objetos.";
+        } else if (tag == 36) {
+            auto result = prepareSelectedTriggerCombo();
+            if (result.count == 0) {
+                m_status = "Selecione triggers configurados com alvo 0.";
+                m_comboData.clear();
+                m_comboCount = 0;
+            } else {
+                m_comboData = std::move(result.serialized);
+                m_comboCount = result.count;
+                m_status = "Combo preparado: " + std::to_string(m_comboCount) + " triggers. Publicacao requer token admin.";
+            }
         } else if (tag >= 30 && tag <= 35) {
             static const int triggerIDs[] = { 901, 899, 1006, 1007, 1049, 1268 };
             static const char* triggerNames[] = { "MOVE", "COLOR", "PULSE", "ALPHA", "TOGGLE", "SPAWN" };
