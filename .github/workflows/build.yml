@@ -1,0 +1,28 @@
+name: Build DL-Mega-utils
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+    branches:
+      - main
+jobs:
+  build-android64:
+    name: Build Android 64-bit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build Geode mod
+        id: build
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          sdk: v5.11.2
+          platform: android64
+          build-config: Release
+      - name: Upload .geode artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DL-Mega-utils-android64
+          path: ${{ steps.build.outputs.build-output }}
+          if-no-files-found: error
