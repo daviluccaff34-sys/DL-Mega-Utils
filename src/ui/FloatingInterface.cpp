@@ -16,29 +16,12 @@ class DLPanel : public CCLayerColor {
     std::string m_status = "Escolha uma ferramenta.";
     std::string m_preset = "NULL";
 
-    void addLabel(std::string const& text, CCPoint pos, float scale = .55f) {
+    void addLabel(CCNode* parent, std::string const& text, CCPoint pos, float scale = .55f) {
         auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
         if (!label) return;
         label->setScale(scale);
         label->setPosition(pos);
-        this->addChild(label);
-    }
-
-    void addAction(std::string const& text, int tag, CCPoint pos, float scale = .48f) {
-        auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
-        if (!label) return;
-        label->setScale(scale);
-        auto item = CCMenuItemLabel::create(label, this, menu_selector(DLPanel::onAction));
-        item->setTag(tag);
-        auto menu = typeinfo_cast<CCMenu*>(this->getChildByID("dl-actions"));
-        if (!menu) {
-            menu = CCMenu::create();
-            menu->setID("dl-actions");
-            menu->setPosition(CCPointZero);
-            this->addChild(menu, 10);
-        }
-        menu->addChild(item);
-        item->setPosition(pos);
+        parent->addChild(label);
     }
 
     void rebuild() {
@@ -65,8 +48,6 @@ class DLPanel : public CCLayerColor {
         close->setPosition(w - 19.f, h - 20.f);
         panel->addChild(topMenu, 5);
 
-        auto oldMenu = this->getChildByID("dl-actions");
-        (void)oldMenu;
         auto makeButton = [&](std::string const& text, int tag, float y) {
             auto label = CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
             if (!label) return;
@@ -88,12 +69,12 @@ class DLPanel : public CCLayerColor {
         } else {
             makeButton("< VOLTAR", 10, 24.f);
             if (m_page == Page::Decoration) {
-                addLabel("PRESET: " + m_preset, { w / 2.f, h - 61.f });
+                addLabel(panel, "PRESET: " + m_preset, { w / 2.f, h - 61.f });
                 makeButton("NULL", 16, h - 100.f);
                 makeButton("HELL", 17, h - 132.f);
                 makeButton("TECHNO", 18, h - 164.f);
                 makeButton("MODERN", 19, h - 196.f);
-                addLabel("Preset selecionado; aplicacao no editor pendente.", { w / 2.f, 48.f }, .34f);
+                addLabel(panel, "Preset selecionado; aplicacao no editor pendente.", { w / 2.f, 48.f }, .34f);
             } else if (m_page == Page::Layout) {
                 auto diff = static_cast<int>(m_profile.difficulty);
                 auto len = static_cast<int>(m_profile.length);
@@ -106,19 +87,19 @@ class DLPanel : public CCLayerColor {
                 makeButton(std::string("SYNC: ") + syncs[sync], 13, h - 131.f);
                 makeButton(std::string("DROPS: ") + (m_profile.includeDrops ? "ON" : "OFF"), 14, h - 164.f);
                 makeButton("GENERATE PLAN", 15, h - 197.f);
-                addLabel(m_status, { w / 2.f, 47.f }, .32f);
+                addLabel(panel, m_status, { w / 2.f, 47.f }, .32f);
             } else if (m_page == Page::TriggerMarket) {
-                addLabel("TRIGGER MARKET", { w / 2.f, h - 70.f });
-                addLabel("Compartilhamento online ainda nao conectado.", { w / 2.f, h - 115.f }, .36f);
-                addLabel("Nenhum download ou envio sera simulado.", { w / 2.f, h - 145.f }, .34f);
+                addLabel(panel, "TRIGGER MARKET", { w / 2.f, h - 70.f });
+                addLabel(panel, "Compartilhamento online ainda nao conectado.", { w / 2.f, h - 115.f }, .36f);
+                addLabel(panel, "Nenhum download ou envio sera simulado.", { w / 2.f, h - 145.f }, .34f);
             } else if (m_page == Page::ObjectMarket) {
-                addLabel("OBJECT MARKET", { w / 2.f, h - 70.f });
-                addLabel("Biblioteca online ainda nao conectada.", { w / 2.f, h - 115.f }, .36f);
-                addLabel("Nenhum objeto sera baixado ficticiamente.", { w / 2.f, h - 145.f }, .34f);
+                addLabel(panel, "OBJECT MARKET", { w / 2.f, h - 70.f });
+                addLabel(panel, "Biblioteca online ainda nao conectada.", { w / 2.f, h - 115.f }, .36f);
+                addLabel(panel, "Nenhum objeto sera baixado ficticiamente.", { w / 2.f, h - 145.f }, .34f);
             } else if (m_page == Page::Tools) {
-                addLabel("EDITOR TOOLS", { w / 2.f, h - 70.f });
-                addLabel("Ferramentas serao adicionadas aqui.", { w / 2.f, h - 115.f }, .38f);
-                addLabel("Esta tela e apenas o ponto de entrada.", { w / 2.f, h - 145.f }, .34f);
+                addLabel(panel, "EDITOR TOOLS", { w / 2.f, h - 70.f });
+                addLabel(panel, "Ferramentas serao adicionadas aqui.", { w / 2.f, h - 115.f }, .38f);
+                addLabel(panel, "Esta tela e apenas o ponto de entrada.", { w / 2.f, h - 145.f }, .34f);
             }
         }
     }
@@ -180,15 +161,16 @@ class DLFloatingOrb : public CCLayer {
     bool m_moved = false;
     CCPoint m_touchStart;
     CCPoint m_orbStart;
-    DLPanel* m_panel = nullptr;
-
     void togglePanel() {
-        if (m_panel) {
-            m_panel->removeFromParentAndCleanup(true);
-            m_panel = nullptr;
-        } else {
-            m_panel = DLPanel::create();
-            if (m_panel) this->addChild(m_panel, 20);
+        auto existing = this->getChildByID("dl-panel");
+        if (existing) {
+            existing->removeFromParentAndCleanup(true);
+            return;
+        }
+        auto panel = DLPanel::create();
+        if (panel) {
+            panel->setID("dl-panel");
+            this->addChild(panel, 20);
         }
     }
 
@@ -209,6 +191,8 @@ public:
         auto win = CCDirector::sharedDirector()->getWinSize();
         m_orb->setPosition(38.f, win.height * .55f);
         this->addChild(m_orb, 2);
+        auto orbText = CCLabelBMFont::create("DL", "bigFont.fnt");
+        if (orbText) { orbText->setScale(.30f); orbText->setPosition(m_orb->getContentSize() / 2.f); m_orb->addChild(orbText, 5); }
         return true;
     }
 
@@ -223,7 +207,7 @@ public:
     }
 
     bool ccTouchBegan(CCTouch* touch, CCEvent*) override {
-        if (m_panel || !m_orb) return false;
+        if (this->getChildByID("dl-panel") || !m_orb) return false;
         auto p = this->convertToNodeSpace(touch->getLocation());
         if (!m_orb->boundingBox().containsPoint(p)) return false;
         m_dragging = true;
