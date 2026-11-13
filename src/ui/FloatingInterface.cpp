@@ -15,7 +15,7 @@ bool insertGDObject(int objectID, int x, int y) {
     auto editor = LevelEditorLayer::get();
     if (!editor) return false;
     auto data = "1," + std::to_string(objectID) + ",2," + std::to_string(x) + ",3," + std::to_string(y);
-    return editor->addObjectFromString(gd::string(data.c_str())) != nullptr;
+    return editor->createObjectsFromString(gd::string(data.c_str()), false, false) != nullptr;
 }
 
 int applyGeneratedLayout(LayoutProfile const& profile) {
