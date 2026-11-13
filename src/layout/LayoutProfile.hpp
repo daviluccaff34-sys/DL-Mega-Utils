@@ -18,5 +18,9 @@ struct LayoutSegment {
     float difficultyWeight = 1.f;
     float syncWeight = 1.f;
     bool isDrop = false;
+    unsigned int pattern = 0;
+    bool gapAfter = false;
+    int jumpCount = 1;
+    float decorationDensity = .5f;
     std::vector<LayoutTrigger> triggers;
 };
