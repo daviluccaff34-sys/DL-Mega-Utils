@@ -5,6 +5,7 @@
 #include "../layout/AutoLayoutGenModule.hpp"
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <string>
 
 using namespace geode::prelude;
@@ -225,7 +226,7 @@ class DLPanel : public CCLayerColor {
         this->removeAllChildrenWithCleanup(true);
         auto size = CCDirector::sharedDirector()->getWinSize();
         auto w = std::min(410.f, size.width - 28.f);
-        auto h = std::min(270.f, size.height - 28.f);
+        auto h = std::min(320.f, size.height - 28.f);
         this->setContentSize(size);
         auto panel = CCLayerColor::create(ccc4(22, 20, 38, 248), w, h);
         panel->setPosition((size.width - w) / 2.f, (size.height - h) / 2.f);
@@ -364,10 +365,10 @@ class DLPanel : public CCLayerColor {
                 if (token.empty()) {
                     m_status = "Configure o token admin nas opcoes do mod.";
                 } else {
-                    static unsigned int comboSerial = 1;
+                    auto unique = std::chrono::steady_clock::now().time_since_epoch().count();
                     matjson::Value payload = matjson::Value::object();
                     payload["type"] = "triggers";
-                    payload["id"] = "combo_" + std::to_string(comboSerial++);
+                    payload["id"] = "combo_" + std::to_string(unique);
                     payload["name"] = "Trigger Combo " + std::to_string(m_comboCount);
                     payload["description"] = "Combo publicado pelo DL-Mega-Utils";
                     payload["data"] = m_comboData;
