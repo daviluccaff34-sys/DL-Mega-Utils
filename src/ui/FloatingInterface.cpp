@@ -168,9 +168,14 @@ class DLPanel : public CCLayerColor {
                 makeButton("GENERATE PLAN", 15, h - 197.f);
                 addLabel(panel, m_status, { w / 2.f, 47.f }, .32f);
             } else if (m_page == Page::TriggerMarket) {
-                addLabel(panel, "TRIGGER MARKET", { w / 2.f, h - 70.f });
-                addLabel(panel, "Compartilhamento online ainda nao conectado.", { w / 2.f, h - 115.f }, .36f);
-                addLabel(panel, "Nenhum download ou envio sera simulado.", { w / 2.f, h - 145.f }, .34f);
+                addLabel(panel, "TRIGGER MARKET", { w / 2.f, h - 55.f }, .62f);
+                makeButton("[MV] MOVE", 30, h - 91.f);
+                makeButton("[CL] COLOR", 31, h - 119.f);
+                makeButton("[PL] PULSE", 32, h - 147.f);
+                makeButton("[AL] ALPHA", 33, h - 175.f);
+                makeButton("[TG] TOGGLE", 34, h - 203.f);
+                makeButton("[SP] SPAWN", 35, h - 231.f);
+                addLabel(panel, m_status, { w / 2.f, 43.f }, .30f);
             } else if (m_page == Page::ObjectMarket) {
                 addLabel(panel, "OBJECT MARKET", { w / 2.f, h - 70.f });
                 addLabel(panel, "Biblioteca online ainda nao conectada.", { w / 2.f, h - 115.f }, .36f);
@@ -209,6 +214,27 @@ class DLPanel : public CCLayerColor {
             if (inserted < 0) m_status = "Abra uma fase no editor primeiro.";
             else if (inserted == 0) m_status = "Nenhum objeto encontrado para decorar.";
             else m_status = "Decoracao aplicada: " + std::to_string(inserted) + " objetos.";
+        } else if (tag >= 30 && tag <= 35) {
+            static const int triggerIDs[] = { 901, 899, 1006, 1007, 1049, 1268 };
+            static const char* triggerNames[] = { "MOVE", "COLOR", "PULSE", "ALPHA", "TOGGLE", "SPAWN" };
+            auto editor = LevelEditorLayer::get();
+            if (!editor) {
+                m_status = "Abra uma fase no editor primeiro.";
+            } else {
+                static int nextTriggerX = 300;
+                bool added = insertGDObject(triggerIDs[tag - 30], nextTriggerX, 150);
+                if (added) {
+                    nextTriggerX += 45;
+                    editor->dirtifyTriggers();
+                    if (auto ui = EditorUI::get()) {
+                        ui->updateButtons();
+                        ui->updateObjectInfoLabel();
+                    }
+                    m_status = std::string(triggerNames[tag - 30]) + " adicionado! Configure no editor.";
+                } else {
+                    m_status = "Nao foi possivel inserir esse trigger.";
+                }
+            }
         } else if (tag == 11) {
             m_profile.difficulty = static_cast<LayoutDifficulty>((static_cast<int>(m_profile.difficulty) + 1) % 5);
         } else if (tag == 12) {
