@@ -204,7 +204,7 @@ class DLPanel : public CCLayerColor {
                 int count = 0;
                 if (body) {
                     std::string value = *body;
-                    std::string needle = "\\"id\\"";
+                    std::string needle = R"("id")";
                     size_t pos = 0;
                     while ((pos = value.find(needle, pos)) != std::string::npos) {
                         ++count;
