@@ -190,7 +190,7 @@ public:
         if (!m_orb) return true;
         m_orb->setScale(1.25f);
         auto win = CCDirector::sharedDirector()->getWinSize();
-        m_orb->setPosition(38.f, win.height * .55f);
+        m_orb->setPosition(CCPoint(38.f, win.height * .55f));
         this->addChild(m_orb, 2);
         auto orbText = CCLabelBMFont::create("DL", "bigFont.fnt");
         if (orbText) { orbText->setScale(.30f); orbText->setPosition(m_orb->getContentSize().width / 2.f, m_orb->getContentSize().height / 2.f); m_orb->addChild(orbText, 5); }
@@ -226,7 +226,7 @@ public:
         auto win = CCDirector::sharedDirector()->getWinSize();
         auto x = std::clamp(m_orbStart.x + delta.x, 24.f, win.width - 24.f);
         auto y = std::clamp(m_orbStart.y + delta.y, 24.f, win.height - 24.f);
-        m_orb->setPosition(x, y);
+        m_orb->setPosition(CCPoint(x, y));
     }
 
     void ccTouchEnded(CCTouch*, CCEvent*) override {
