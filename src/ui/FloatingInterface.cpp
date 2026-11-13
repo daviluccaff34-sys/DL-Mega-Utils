@@ -366,9 +366,9 @@ class DLPanel : public CCLayerColor {
             } else {
                 m_comboData = std::move(result.serialized);
                 m_comboCount = result.count;
-                auto token = Mod::get()->getSettingValue<std::string>("admin-token");
+                auto token = Mod::get()->getSettingValue<std::string>("publish-password");
                 if (token.empty()) {
-                    m_status = "Configure o token admin nas opcoes do mod.";
+                    m_status = "Configure a senha de publicacao nas opcoes do mod.";
                 } else {
                     auto unique = std::chrono::steady_clock::now().time_since_epoch().count();
                     matjson::Value payload = matjson::Value::object();
@@ -380,7 +380,7 @@ class DLPanel : public CCLayerColor {
                     m_requestType = "publish";
                     m_status = "Publicando combo...";
                     auto task = geode::utils::web::WebRequest()
-                        .header("Authorization", "Bearer " + token)
+                        .header("X-Publish-Password", token)
                         .bodyJSON(payload)
                         .post("https://dl-mega-utils-api.daviluccaff34.workers.dev/api/admin/packs");
                     m_webListener.setFilter(task);
