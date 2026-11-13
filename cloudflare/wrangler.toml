@@ -1,0 +1,8 @@
+name = "dl-mega-utils-api"
+main = "worker.js"
+compatibility_date = "2026-11-13"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "DL_MEGA_UTILS"
+id = "09ddcba9b80a4d48856a865575281599"
